@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Digital Asset Manager</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--line:#2a2f3a;--txt:#e7e9ee;--mut:#8b93a3;--acc:#5b8cff;--ok:#3ecf8e;--bad:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+h1{font-size:17px;margin:0}main{padding:18px 20px;max-width:1500px;margin:auto}
+input,select,button{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}
+button{cursor:pointer}button.pri{background:var(--acc);border-color:var(--acc);color:#fff}button:disabled{opacity:.5}
+#q{flex:1;min-width:280px;font-size:16px;padding:10px 12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:8px 0}.bar>div{height:100%;background:var(--acc);width:0}
+.mut{color:var(--mut)}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer}
+.card:hover{border-color:var(--acc)}.th{height:140px;background:#000 center/cover no-repeat;position:relative}
+.badge{position:absolute;top:6px;left:6px;background:#000a;padding:2px 7px;border-radius:6px;font-size:11px;text-transform:uppercase}
+.score{position:absolute;top:6px;right:6px;background:var(--acc);padding:2px 7px;border-radius:6px;font-size:11px}
+.meta{padding:8px 10px}.fn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{display:inline-block;background:#232836;border-radius:5px;padding:1px 6px;margin:2px 3px 0 0;font-size:11px;color:var(--mut)}
+.tabs button{margin-right:6px}.tabs .on{border-color:var(--acc)}
+#modal{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;padding:20px;z-index:9}
+#mbox{background:var(--card);border:1px solid var(--line);border-radius:12px;max-width:1100px;width:100%;max-height:92vh;overflow:auto;padding:16px}
+#prev img,#prev video{max-width:100%;max-height:62vh;display:block;margin:auto;border-radius:8px}#prev iframe{width:100%;height:62vh;border:0;background:#fff;border-radius:8px}
+table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+code{background:#232836;padding:1px 5px;border-radius:4px;word-break:break-all}.err{color:var(--bad)}
+</style></head><body>
+<header>
+  <h1>AI Digital Asset Manager</h1>
+  <input id="q" placeholder='Search by content… e.g. "a woman standing with a cat", "videos containing construction activity"'>
+  <button class="pri" onclick="doSearch()">Search</button>
+</header>
+<main>
+ <div class="panel">
+  <div class="row" style="margin:0">
+    <b>Indexing</b><span id="phase" class="mut"></span>
+    <span style="flex:1"></span>
+    <button class="pri" id="bStart" onclick="startIdx(false)">Index / re-scan folder</button>
+    <button onclick="startIdx(true)">Retry failed</button>
+    <button onclick="api('/api/index/stop',{method:'POST'})">Stop</button>
+  </div>
+  <div class="bar"><div id="pbar"></div></div>
+  <div id="counts" class="mut"></div>
+ </div>
+
+ <div class="tabs row"><button id="t1" class="on" onclick="tab(1)">Search</button>
+   <button id="t2" onclick="tab(2)">Failed / unsupported files</button></div>
+
+ <div id="v1">
+  <div class="row">
+   <select id="f_type"><option value="">All types</option><option>image</option><option>video</option><option>pdf</option></select>
+   <select id="f_ext"><option value="">Any extension</option></select>
+   <select id="f_folder"><option value="">Any folder</option></select>
+   <select id="f_tag"><option value="">Any AI tag</option></select>
+   <input id="f_min" type="number" min="0" step="0.1" placeholder="min MB" style="width:100px">
+   <input id="f_max" type="number" min="0" step="0.1" placeholder="max MB" style="width:100px">
+   <span id="info" class="mut"></span>
+  </div>
+  <div id="grid" class="grid"></div>
+ </div>
+ <div id="v2" style="display:none">
+  <div class="row"><select id="st" onchange="loadBad()"><option>failed</option><option>unsupported</option><option>duplicate</option></select></div>
+  <table id="bad"></table>
+ </div>
+</main>
+<div id="modal" onclick="if(event.target===this)closeM()"><div id="mbox"></div></div>
+<script>
+let R=[];const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mb=b=>b>1048576?(b/1048576).toFixed(1)+' MB':(b/1024).toFixed(0)+' KB';
+const dur=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+async function api(u,o){const r=await fetch(u,o);if(!r.ok)throw new Error(await r.text());return r.json()}
+function tab(n){$('v1').style.display=n==1?'':'none';$('v2').style.display=n==2?'':'none';$('t1').className=n==1?'on':'';$('t2').className=n==2?'on':'';if(n==2)loadBad()}
+async function startIdx(retry){await api('/api/index/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({retry_failed:retry})});poll()}
+async function poll(){
+  try{const s=await api('/api/index/status'),r=s.run,c=s.counts;
+   const total=r.queued||0,pct=total?Math.round(100*r.processed/total):(r.running?3:(r.phase=='finished'?100:0));
+   $('pbar').style.width=pct+'%';
+   $('phase').textContent=r.running?`${r.phase} ${r.current?'· '+r.current:''}`:(r.error?('error: '+r.error):r.phase);
+   $('counts').innerHTML=`scanned ${r.scanned} · unchanged ${r.unchanged} · queued ${r.queued} · processed ${r.processed}/${total} &nbsp;|&nbsp; `+
+     Object.entries(c).map(([k,v])=>`${k}: <b>${v}</b>`).join(' · ')+`<br>folder: <code>${esc(s.media_dir)}</code>`;
+   if(!r.running&&window._wasRunning)loadFacets();window._wasRunning=r.running;
+  }catch(e){}
+}
+async function loadFacets(){
+  const f=await api('/api/facets');
+  const fill=(id,arr,first)=>{const v=$(id).value;$(id).innerHTML=`<option value="">${first}</option>`+arr.map(x=>`<option>${esc(x)}</option>`).join('');$(id).value=v};
+  fill('f_ext',f.exts.map(e=>e.ext),'Any extension');fill('f_folder',f.folders,'Any folder');fill('f_tag',f.tags,'Any AI tag');
+}
+async function doSearch(){
+  const q=$('q').value.trim();if(!q)return;
+  const p=new URLSearchParams({q});
+  [['type','f_type'],['ext','f_ext'],['folder','f_folder'],['tag','f_tag'],['min_mb','f_min'],['max_mb','f_max']].forEach(([k,id])=>{if($(id).value)p.set(k,$(id).value)});
+  $('info').textContent='searching…';
+  try{const d=await api('/api/search?'+p);R=d.results;
+   $('info').textContent=`${d.total} results · ${d.took_ms} ms`+(d.detected_type?` · detected type: ${d.detected_type}`:'');
+   $('grid').innerHTML=R.length?R.map((r,i)=>`<div class="card" onclick="openM(${i})">
+     <div class="th" style="background-image:url('${r.thumb_url||''}')"><span class="badge">${r.type}${r.duration?' · '+dur(r.duration):''}${r.pages?' · '+r.pages+'p':''}</span><span class="score">${Math.round(r.score*100)}%</span></div>
+     <div class="meta"><div class="fn" title="${esc(r.rel_path)}">${esc(r.filename)}</div><div class="mut">${mb(r.size)}${r.also_at.length?' · +'+r.also_at.length+' duplicate(s)':''}</div>
+     <div>${r.tags.slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></div></div>`).join(''):'<p class="mut">No relevant assets found (nothing above the relevance threshold).</p>';
+  }catch(e){$('info').textContent='error: '+e.message}
+}
+function openM(i){
+  const r=R[i];window._cur=r;let prev='';
+  if(r.type=='image')prev=`<img src="${r.file_url}">`;
+  else if(r.type=='video')prev=`<video controls autoplay muted src="${r.file_url}#t=${r.match.at||0}"></video>`;
+  else prev=`<iframe src="${r.file_url}#page=${r.match.page||1}"></iframe>`;
+  let m='';
+  if(r.match.kind=='frame')m=`Best matching moment at <b>${dur(r.match.at)}</b> (player starts there)`;
+  if(r.match.kind=='text')m=`Matched text on page ${r.match.page}: <i>“${esc(r.match.snippet)}…”</i>`;
+  if(r.match.kind=='page_visual')m='Matched the visual look of the first page';
+  $('mbox').innerHTML=`<div class="row"><b style="font-size:16px">${esc(r.filename)}</b><span style="flex:1"></span>
+    <button onclick="api('/api/reveal/${r.id}',{method:'POST'})">Show in folder</button>
+    <button onclick="navigator.clipboard.writeText(window._cur.path)">Copy path</button>
+    <button onclick="closeM()">Close</button></div>
+    <div id="prev">${prev}</div>
+    <p>${m}</p><p class="mut">${esc(r.summary||'')}</p>
+    <div>${r.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+    <p>Path: <code>${esc(r.path)}</code><br>${r.type} ${esc(r.ext)} · ${mb(r.size)}${r.width?` · ${r.width}×${r.height}`:''}${r.duration?` · ${dur(r.duration)}`:''}${r.pages?` · ${r.pages} pages`:''} · relevance ${Math.round(r.score*100)}%</p>
+    ${r.also_at.length?`<p class="mut">Same file also at:<br>${r.also_at.map(p=>`<code>${esc(p)}</code>`).join('<br>')}</p>`:''}`;
+  $('modal').style.display='flex';
+}
+function closeM(){$('modal').style.display='none';$('mbox').innerHTML=''}
+async function loadBad(){
+  const rows=await api('/api/assets?status='+$('st').value);
+  $('bad').innerHTML='<tr><th>File</th><th>Type</th><th>Size</th><th>Reason</th><th></th></tr>'+(rows.map(r=>
+   `<tr><td>${esc(r.rel_path)}</td><td>${esc(r.type||r.ext)}</td><td>${mb(r.size)}</td><td class="err">${esc(r.error||(r.status=='unsupported'?'unsupported file type':''))}</td>
+   <td>${r.status=='failed'?`<button onclick="api('/api/assets/${r.id}/retry',{method:'POST'}).then(loadBad)">Retry</button>`:''}</td></tr>`).join('')||'<tr><td class="mut">none</td></tr>');
+}
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeM()});
+loadFacets();poll();setInterval(poll,1500);
+</script></body></html>

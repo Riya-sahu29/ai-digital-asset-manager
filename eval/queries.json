@@ -1,0 +1,16 @@
+[
+  {"id": 1, "query": "a woman sitting on a sofa", "intent": "photo of a woman indoors", "expected": "pexels-anna-alexes", "type": "image"},
+  {"id": 2, "query": "a bird", "intent": "bird photo", "expected": "pexels-saplak", "type": "image"},
+  {"id": 3, "query": "a slice of cake on a plate", "intent": "food photo", "expected": "pexels-sarah-rosado", "type": "image"},
+  {"id": 4, "query": "a house in a green field", "intent": "property / landscape photo", "expected": "pexels-adit-syahfiar", "type": "image"},
+  {"id": 5, "query": "videos of a modern living room", "intent": "interior video", "expected": "4231453", "type": "video"},
+  {"id": 6, "query": "Videos containing construction activity", "intent": "construction footage", "expected": "5348781", "type": "video"},
+  {"id": 7, "query": "construction workers on a building site", "intent": "construction footage", "expected": "5348781"},
+  {"id": 8, "query": "a dog", "intent": "dog footage", "expected": "19201621", "type": "video"},
+  {"id": 9, "query": "Brochures related to residential projects", "intent": "residential brochure PDF", "expected": "greenview"},
+  {"id": 10, "query": "apartments with swimming pool and gym", "intent": "text inside the brochure", "expected": "greenview"},
+  {"id": 11, "query": "research paper about machine learning", "intent": "ML paper PDF", "expected": "semantic_image_retrieval"},
+  {"id": 12, "query": "easy pasta and pizza recipes", "intent": "recipe PDF", "expected": "healthy_recipes"},
+  {"id": 13, "query": "Customer testimonial videos", "intent": "KNOWN WEAK: no testimonial video exists in this dataset", "expect_empty": true},
+  {"id": 14, "query": "a spaceship landing on mars", "intent": "NEGATIVE test: nothing matches", "expect_empty": true}
+]
