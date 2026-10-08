@@ -2,7 +2,7 @@
 
 > Search your images, videos and PDFs by **what is inside them**, using plain English. Runs fully locally with open-source models. No API keys, no cloud.
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688) ![SQLite](https://img.shields.io/badge/SQLite-storage-003B57) ![CLIP](https://img.shields.io/badge/CLIP-ViT--B%2F32-orange) ![License](https://img.shields.io/badge/use-assignment-lightgrey)
+![Python](https://img.shields.io/badge/Python-3.10+-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688) ![SQLite](https://img.shields.io/badge/SQLite-storage-003B57) ![CLIP](https://img.shields.io/badge/CLIP-ViT--B%2F32-orange) 
 
 Organisations keep thousands of media files in folders with unclear names. This project indexes a folder of **images, videos and PDFs**, understands their *content* with AI, and lets users find assets with queries like:
 
